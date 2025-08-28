@@ -1,35 +1,21 @@
-import openai
-from telegram import Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
-
 import os
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+TOKEN = os.getenv("BOT_TOKEN")
 
-openai.api_key = OPENAI_API_KEY
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Привіт! 👋 Я твій бот і готовий працювати!")
 
-def get_gpt_response(prompt):
-    response = openai.ChatCompletion.create(
-        model="gpt-4-mini",
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=500
-    )
-    return response.choices[0].message['content'].strip()
-
-def handle_message(update: Update, context: CallbackContext):
-    user_text = update.message.text
-    reply = get_gpt_response(user_text)
-    update.message.reply_text(reply)
+async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(f"Ти написав: {update.message.text}")
 
 def main():
-    updater = Updater(TELEGRAM_TOKEN, use_context=True)
-    dp = updater.dispatcher
-    dp.add_handler(CommandHandler("start", lambda update, context: update.message.reply_text("Привіт! Я твій GPT-бот.")))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
-    print("Бот запущено...")
-    updater.start_polling()
-    updater.idle()
+    app = ApplicationBuilder().token(TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
+    print("✅ Бот запущено. Очікую повідомлення...")
+    app.run_polling()
 
 if __name__ == "__main__":
     main()
