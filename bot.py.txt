@@ -1,0 +1,35 @@
+import openai
+from telegram import Update
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+
+import os
+
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN")
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+
+openai.api_key = OPENAI_API_KEY
+
+def get_gpt_response(prompt):
+    response = openai.ChatCompletion.create(
+        model="gpt-4-mini",
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=500
+    )
+    return response.choices[0].message['content'].strip()
+
+def handle_message(update: Update, context: CallbackContext):
+    user_text = update.message.text
+    reply = get_gpt_response(user_text)
+    update.message.reply_text(reply)
+
+def main():
+    updater = Updater(TELEGRAM_TOKEN, use_context=True)
+    dp = updater.dispatcher
+    dp.add_handler(CommandHandler("start", lambda update, context: update.message.reply_text("Привіт! Я твій GPT-бот.")))
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
+    print("Бот запущено...")
+    updater.start_polling()
+    updater.idle()
+
+if __name__ == "__main__":
+    main()
