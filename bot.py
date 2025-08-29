@@ -1,46 +1,65 @@
-import os
-import openai
+import logging
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+from openai import OpenAI
+import os
 
-# Отримуємо токени з Environment Variables
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# ЛОГІНГ для дебагу
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO
+)
 
-openai.api_key = OPENAI_API_KEY
+# БЕРЕМО КЛЮЧІ
+TELEGRAM_TOKEN = os.getenv("BOT_TOKEN")  # твій Telegram-токен
+OPENAI_KEY = os.getenv("OPENAI_API_KEY")  # твій OpenAI API-ключ
 
-# Команда /start
+# СТВОРЮЄМО КЛІЄНТА OpenAI
+client = OpenAI(api_key=OPENAI_KEY)
+
+
+# /start команда
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Привіт! 👋 Я твій бот на основі ChatGPT. Можеш писати мені будь-які повідомлення!")
+    await update.message.reply_text("Привіт! Я твій AI-бот. Напиши мені щось 😉")
 
-# Обробка текстових повідомлень через OpenAI
-async def chat_with_gpt(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_text = update.message.text
+
+# ОБРОБКА ВСІХ ПОВІДОМЛЕНЬ
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_message = update.message.text
 
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4-mini",  # можна замінити на gpt-4 або gpt-3.5-turbo
+        # ВИКЛИК OpenAI
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "Ти ввічливий помічник."},
-                {"role": "user", "content": user_text}
-            ]
+                {"role": "system", "content": "Ти дружній Telegram-бот."},
+                {"role": "user", "content": user_message},
+            ],
+            max_tokens=300,
+            temperature=0.7,
         )
-        answer = response['choices'][0]['message']['content']
+
+        reply = response.choices[0].message.content
+        await update.message.reply_text(reply)
+
     except Exception as e:
-        answer = "Вибач, сталася помилка при обробці твоєї відповіді."
+        logging.error(f"OpenAI Error: {e}")
+        await update.message.reply_text("⚠️ Вибач, сталася помилка при обробці твоєї відповіді.")
 
-    await update.message.reply_text(answer)
 
+# ГОЛОВНА ФУНКЦІЯ
 def main():
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
     # Команди
     app.add_handler(CommandHandler("start", start))
-    # Повідомлення
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, chat_with_gpt))
 
-    print("✅ Бот запущено. Очікую повідомлення...")
+    # Всі повідомлення
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+    # Запуск
     app.run_polling()
+
 
 if __name__ == "__main__":
     main()
